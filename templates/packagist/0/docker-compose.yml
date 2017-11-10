@@ -1,0 +1,29 @@
+version: '2'
+services:
+  web:
+    build:
+      context: ../../../../
+    links:
+      - mysql
+      - redis
+    ports:
+      - '80'
+    volumes:
+      - $path_to_shared_files:/var/www/pim/shared/
+    labels:
+      io.rancher.container.pull_image: always
+      rap.host: $virtual_host
+      rap.le_host: $virtual_host
+
+  mysql:
+    image: percona:latest
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=toor
+      - MYSQL_DATABASE=packagist
+      - MYSQL_USER=packagist
+      - MYSQL_PASSWORD=packagist
+
+  redis:
+    restart: always
+    image: redis:latest

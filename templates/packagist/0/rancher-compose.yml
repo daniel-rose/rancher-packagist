@@ -1,0 +1,13 @@
+.catalog:
+  name: "Packagist"
+  version: "1.0.0"
+  description: "Package Repository Website for Composer"
+  questions:
+    - variable: virtual_host
+      label: "Virtual Host"
+      required: true
+      type: "string"
+    - variable: path_to_shared_files
+      label: "Path To Shared Files"
+      required: true
+      type: "string"

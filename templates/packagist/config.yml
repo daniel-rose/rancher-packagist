@@ -1,0 +1,5 @@
+name: Packagist
+description: |
+  Package Repository Website for Composer
+version: 1.0.0
+category: Repository
