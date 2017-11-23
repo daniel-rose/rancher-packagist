@@ -9,11 +9,14 @@ services:
     ports:
       - '80'
     volumes:
-      - $path_to_shared_files:/var/www/pim/shared/
+      - ${path_to_shared_files}:/var/www/pim/shared/
+    environment:
+      - SSH_PUBLIC_KEY=${ssh_public_key}
+      - SSH_PRIVATE_KEY=${ssh_private_key}
     labels:
       io.rancher.container.pull_image: always
-      rap.host: $virtual_host
-      rap.le_host: $virtual_host
+      rap.host: ${virtual_host}
+      rap.le_host: ${virtual_host}
 
   mysql:
     image: percona:latest

@@ -11,3 +11,13 @@
       label: "Path To Shared Files"
       required: true
       type: "string"
+    - variable: ssh_public_key
+      label: "SSH Public Key"
+      required: false
+      type: "multiline"
+      default: ""
+    - variable: ssh_private_key
+      label: "SSH Private Key"
+      required: false
+      type: "multiline"
+      default: ""

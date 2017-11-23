@@ -1,46 +1,58 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 
-PATH_TO_PACKAGIST="/var/www/packagist/releases/current/"
+PATH_TO_CURRENT_RELEASE="/var/www/packagist/releases/current/"
 PATH_TO_SHARED_FILES="/var/www/packagist/shared/"
 
-cd ${PATH_TO_PACKAGIST}
+function run_as() {
+  if [[ $EUID -eq 0 ]]; then
+    su - www-data -s /bin/bash -c "$1"
+  else
+    bash -c "$1"
+  fi
+}
 
-if [ ! -f "${PATH_TO_PACKAGIST}app/config/parameters.yml" ] && [ -f "${PATH_TO_SHARED_FILES}parameters.yml" ]; then
-    ln -s ${PATH_TO_SHARED_FILES}parameters.yml ${PATH_TO_PACKAGIST}app/config/parameters.yml
+if [ -n "${SSH_PUBLIC_KEY}" ] && [ -n "${SSH_PRIVATE_KEY}" ]; then
+    mkdir /var/www/.ssh/
+    echo ${SSH_PUBLIC_KEY} > /var/www/.ssh/id_rsa.pub
+    echo ${SSH_PRIVATE_KEY} > /var/www/.ssh/id_rsa
+    chown www-data:www-data /var/www/.ssh/ -R
+    chmod 0644 /var/www/.ssh/id_rsa.pub
+    chmod 0600 /var/www/.ssh/id_rsa
 fi
 
-if [ -d "${PATH_TO_PACKAGIST}web" ] && [ ! -L "/var/www/html" ]; then
-    composer.phar install
+# link config
+if [ ! -f "${PATH_TO_CURRENT_RELEASE}app/config/parameters.yml" ] && [ -f "${PATH_TO_SHARED_FILES}parameters.yml" ]; then
+    ln -s ${PATH_TO_SHARED_FILES}parameters.yml ${PATH_TO_CURRENT_RELEASE}app/config/parameters.yml
+fi
 
-    php app/console doctrine:schema:create --no-debug --env=prod
-    php app/console assets:install web --no-debug --env=prod
-
+# create symlink
+if [ -d "${PATH_TO_CURRENT_RELEASE}web" ] && [ ! -L "/var/www/html" ]; then
     rm -Rf /var/www/html
-    ln -s ${PATH_TO_PACKAGIST}web /var/www/html
+    ln -s ${PATH_TO_CURRENT_RELEASE}web /var/www/html
 fi
 
-php app/console cache:clear --no-debug --env=prod
+# install packagist
+if [ -f "${PATH_TO_SHARED_FILES}packagist.lock" ]; then
+    run_as "php app/console doctrine:schema:create --no-debug --env=prod"
+    run_as "php app/console assets:install web --no-debug --env=prod"
+    run_as "touch ${PATH_TO_SHARED_FILES}packagist.lock"
+fi
 
-php app/console packagist:update --no-debug --env=prod
-php app/console packagist:dump --no-debug --env=prod
-php app/console packagist:index --no-debug --env=prod
+run_as "php app/console cache:clear --no-debug --env=prod"
 
-php app/console cache:warmup --env=prod
+run_as "php app/console packagist:update --no-debug --env=prod"
+run_as "php app/console packagist:dump --no-debug --env=prod"
+run_as "php app/console packagist:index --no-debug --env=prod"
 
-chown www-data:www-data * -R
+run_as "php app/console cache:warmup --env=prod"
+
+chown www-data:www-data ${PATH_TO_CURRENT_RELEASE} -R
 
 if [ ! -f "/etc/cron.d/packagist" ]; then
-    echo "* * * * * www-data php ${PATH_TO_PACKAGIST}app/console packagist:update --no-debug --env=prod" > /etc/cron.d/packagist
-    echo "* * * * * www-data php ${PATH_TO_PACKAGIST}app/console packagist:dump --no-debug --env=prod" >> /etc/cron.d/packagist
-    echo "* * * * * www-data php ${PATH_TO_PACKAGIST}app/console packagist:index --no-debug --env=prod" >> /etc/cron.d/packagist
-fi
-
-cron
-
-# first arg is `-f` or `--some-option`
-if [ "${1#-}" != "$1" ]; then
-	set -- apache2-foreground "$@"
+    echo "* * * * * www-data php ${PATH_TO_CURRENT_RELEASE}app/console packagist:update --no-debug --env=prod" > /etc/cron.d/packagist
+    echo "* * * * * www-data php ${PATH_TO_CURRENT_RELEASE}app/console packagist:dump --no-debug --env=prod" >> /etc/cron.d/packagist
+    echo "* * * * * www-data php ${PATH_TO_CURRENT_RELEASE}app/console packagist:index --no-debug --env=prod" >> /etc/cron.d/packagist
 fi
 
 exec "$@"

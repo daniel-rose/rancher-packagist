@@ -3,6 +3,8 @@ FROM php:7-apache
 MAINTAINER Daniel Rose <daniel.rose@fondofbags.com>
 
 ENV COMPOSER_HOME /var/www/.composer
+ENV PATH_TO_RELEASES /var/www/packagist/releases
+ENV PATH_TO_CURRENT_RELEASE /var/www/packagist/releases/current
 
 # install the php extensions
 RUN set -ex; \
@@ -13,6 +15,7 @@ RUN set -ex; \
 	    wget \
 	    zip \
 	    git \
+	    supervisor \
 	    libcurl4-gnutls-dev \
         libicu-dev \
         libmcrypt-dev; \
@@ -25,17 +28,25 @@ RUN wget https://raw.githubusercontent.com/composer/getcomposer.org/1b137f8bf6db
     mkdir -p /var/www/.composer
 
 # download packagist
-RUN mkdir -p /var/www/packagist/releases/; \
+RUN mkdir -p $PATH_TO_RELEASES/; \
     wget https://github.com/composer/packagist/archive/master.zip; \
-    mv master.zip /var/www/packagist/releases/; \
-    unzip /var/www/packagist/releases/master.zip -d /var/www/packagist/releases/; \
-    mv /var/www/packagist/releases/packagist-master/ /var/www/packagist/releases/current
+    mv master.zip $PATH_TO_RELEASES/; \
+    unzip $PATH_TO_RELEASES//master.zip -d $PATH_TO_RELEASES/; \
+    mv $PATH_TO_RELEASES/packagist-master/ $PATH_TO_CURRENT_RELEASE/
+
+# composer actions
+RUN cd PATH_TO_CURRENT_RELEASE; \
+    composer.phar global require hirak/prestissimo; \
+    composer.phar install
 
 RUN chown -R www-data:www-data /var/www
 
 RUN a2enmod rewrite ssl
 
+COPY supervisord.conf /etc/supervisor/supervisord.conf
+
 COPY docker-entrypoint.sh /usr/local/bin/
+
 ENTRYPOINT ["docker-entrypoint.sh"]
 
-CMD ["apache2-foreground"]
+CMD ["/usr/bin/supervisord"]
